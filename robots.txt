@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://haitifoodinnovationet.com/sitemap.xml
