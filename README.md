@@ -1,12 +1,12 @@
-# Haiti Food Innovation ET — Website
+# Haiti Food Innovation ET - Website
 
 Static website, ready for GitHub Pages. English + Amharic (/am/).
 
 ## Structure
-- index/about/products/research/quality/contact/privacy/thanks/404 .html — English pages
-- am/ — Amharic versions of every page (language toggle in the header)
-- assets/ — stylesheet, script, logo (logo.svg) and product photos
-- sitemap.xml, robots.txt — SEO files (domain is set to haitifoodinnovationet.com)
+- index/about/products/research/quality/contact/privacy/thanks/404 .html - English pages
+- am/ - Amharic versions of every page (language toggle in the header)
+- assets/ - stylesheet, script, logo (logo.svg) and product photos
+- sitemap.xml, robots.txt - SEO files (domain is set to haitifoodinnovationet.com)
 
 ## Deploy on GitHub Pages (summary)
 1. Create a GitHub account owned by the company, then a new PUBLIC repository (any name, e.g. `website`).
@@ -22,9 +22,9 @@ Static website, ready for GitHub Pages. English + Amharic (/am/).
 ## Activate the forms (one-time)
 The inquiry and review forms deliver to haitifoodinnovationET@gmail.com via FormSubmit.
 After the site is live, submit each form once yourself; FormSubmit sends a confirmation
-email to that inbox — click "Activate" and all future submissions will arrive by email.
+email to that inbox - click "Activate" and all future submissions will arrive by email.
 
-## Before launch — confirm
+## Before launch - confirm
 - Phone numbers shown on the Contact page and footer (+251 926 972 523, +251 911 268 229).
 - If the domain spelling differs, update DOMAIN in sitemap.xml/robots.txt (search & replace).
 - Replace assets/img/logo.svg with the official logo file if preferred (keep the name logo.svg).
