@@ -208,6 +208,15 @@ footer li{margin:.35rem 0}
   .hero .wrap{padding:3.6rem 22px 4rem}
   .proof .wrap{grid-template-columns:repeat(2,1fr)}
 }
+/* Floating order button */
+.fab-order{position:fixed;right:18px;bottom:18px;z-index:80;background:var(--gold);color:var(--green-deep);
+ font-weight:800;font-size:.95rem;padding:.85rem 1.35rem;border-radius:999px;display:inline-flex;align-items:center;gap:.5rem;
+ box-shadow:0 8px 24px rgba(19,44,29,.35);animation:fabPulse 1.6s ease-in-out infinite;text-decoration:none}
+.fab-order:hover{background:#D69B33;text-decoration:none}
+@keyframes fabPulse{0%,100%{transform:scale(1);box-shadow:0 8px 24px rgba(19,44,29,.35)}
+ 50%{transform:scale(1.09);box-shadow:0 10px 34px rgba(192,138,38,.75)}}
+@media(max-width:760px){.fab-order{right:12px;bottom:12px;padding:.75rem 1.1rem}}
+
 @media(prefers-reduced-motion:reduce){
   *{transition:none !important;animation:none !important}
   html{scroll-behavior:auto}
