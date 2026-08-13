@@ -63,6 +63,15 @@
    <a class="btn btn-outline" href="#" id="adminLink" style="display:none">Admin dashboard</a>
    <a class="btn btn-outline" href="#" id="logout">Sign out</a>
   </div>
+  <details style="margin:0 0 2rem">
+   <summary style="cursor:pointer;font-weight:700;color:var(--green)">Change my password</summary>
+   <form class="hf" id="chpwForm" style="margin-top:1rem">
+    <div><label>New password *</label><input id="cp1" type="password" minlength="6" required></div>
+    <div><label>Repeat new password *</label><input id="cp2" type="password" minlength="6" required></div>
+    <div><button class="btn btn-green" type="submit">Change password</button></div>
+   </form>
+   <div id="chpwMsg"></div>
+  </details>
   <h3 style="margin-bottom:1rem">Write a product review</h3>
   <form class="hf" id="revForm" style="margin-bottom:2rem">
    <div class="f-row">
@@ -161,6 +170,14 @@ async function showMe(p){
   $("meInfo").innerHTML = `<b>${esc(p.full_name)}</b><br>${esc(p.phone)}<br><span class="small">Role: ${esc(p.role)}</span>${dist}`;
   if (p.role === "admin") { const a = $("adminLink"); a.style.display = "inline-block"; a.href = "admin.html"; }
   $("logout").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
+  $("chpwForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if ($("cp1").value !== $("cp2").value) { banner($("chpwMsg"), "The two passwords do not match.", false); return; }
+    const { error } = await sb.auth.updateUser({ password: $("cp1").value });
+    if (error) { banner($("chpwMsg"), esc(error.message), false); return; }
+    $("chpwForm").reset();
+    banner($("chpwMsg"), "Password changed successfully.", true);
+  };
   const { data: prodList } = await sb.from("products").select("name").order("sort");
   (prodList || []).forEach(x => { const o = document.createElement("option"); o.textContent = x.name; $("r_prod").appendChild(o); });
   $("revForm").onsubmit = async (e) => {
