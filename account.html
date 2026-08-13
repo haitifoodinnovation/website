@@ -45,6 +45,16 @@
   <div id="authMsg"></div>
  </div>
 
+ <div id="resetBox" style="display:none">
+  <div class="section-head"><span class="eyebrow">Account · መለያ</span><h2>Set a new password</h2></div>
+  <form class="hf" id="resetForm">
+   <div><label>New password *</label><input id="np1" type="password" minlength="6" required></div>
+   <div><label>Repeat new password *</label><input id="np2" type="password" minlength="6" required></div>
+   <div><button class="btn btn-green" type="submit">Save new password</button></div>
+  </form>
+  <div id="resetMsg"></div>
+ </div>
+
  <div id="meBox" style="display:none">
   <div class="section-head"><span class="eyebrow">Account · መለያ</span><h2 id="hello">My account</h2></div>
   <div id="meInfo" class="order-card"></div>
@@ -78,7 +88,25 @@ const $ = id => document.getElementById(id);
 if (!configured) {
   banner($("cfg"), "Online accounts are not switched on yet. Please use the Contact page, phone or WhatsApp to order.", false);
   $("authBox").style.display = "none";
-} else { init(); }
+} else {
+  sb.auth.onAuthStateChange((event) => { if (event === "PASSWORD_RECOVERY") showReset(); });
+  if (location.hash.includes("type=recovery")) showReset();
+  init();
+}
+
+function showReset(){
+  $("authBox").style.display = "none";
+  $("meBox").style.display = "none";
+  $("resetBox").style.display = "block";
+  $("resetForm").onsubmit = async (e) => {
+    e.preventDefault();
+    if ($("np1").value !== $("np2").value) { banner($("resetMsg"), "The two passwords do not match.", false); return; }
+    const { error } = await sb.auth.updateUser({ password: $("np1").value });
+    if (error) { banner($("resetMsg"), esc(error.message), false); return; }
+    banner($("resetMsg"), "Password changed. Signing you in…", true);
+    setTimeout(() => { history.replaceState(null, "", location.pathname); location.reload(); }, 1200);
+  };
+}
 
 let mode = "login";
 function setMode(m){
