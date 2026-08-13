@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order | Haiti Food Innovation ET</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Manrope:wght@400;600;700&family=Noto+Sans+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+.prod{display:flex;align-items:center;justify-content:space-between;gap:1rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin-bottom:.7rem}
+.prod input{width:4.6rem;text-align:center}
+.prod .nm b{display:block}
+.prod .nm span{font-size:.82rem;color:var(--ink-soft)}
+.sumbox{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:1.2rem 1.4rem;box-shadow:var(--shadow)}
+.pay{background:var(--green-tint);border:1px solid #CBDCCB;border-radius:12px;padding:1.2rem 1.4rem;margin-top:1rem}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+ <a class="brand" href="index.html"><img src="assets/img/logo.png" alt=""><span class="brand-name">HAITI<span class="brand-sub">Food&nbsp;Innovation&nbsp;·&nbsp;ET</span></span></a>
+ <nav class="mainnav" style="display:flex"><a href="index.html">Home</a><a href="products.html">Products</a><a href="account.html">Account</a><a href="contact.html" class="nav-cta">Contact</a></nav>
+</div></header>
+
+<section class="page-hero"><div class="wrap">
+ <span class="eyebrow">Order · ትዕዛዝ</span>
+ <h1>Order Haiti products</h1>
+ <p>Choose quantities, place the order, then pay by telebirr or bank transfer using your order reference. We confirm and arrange delivery or pickup.</p>
+</div></section>
+
+<section class="section"><div class="wrap" style="max-width:46rem">
+ <div id="cfg"></div>
+ <div id="needLogin" style="display:none">
+  <div class="notice"><b>Sign in to order.</b> Ordering needs a free account so you can track your order and payment. <a href="account.html">Sign in or create an account here.</a></div>
+ </div>
+
+ <div id="shop" style="display:none">
+  <h2 style="margin-bottom:1rem">Retail products</h2>
+  <div id="retail"></div>
+  <div id="wsWrap" style="margin-top:2rem">
+   <h2 style="margin-bottom:.4rem">Wholesale (bulk sacks)</h2>
+   <div id="wsNote" class="small" style="margin-bottom:1rem"></div>
+   <div id="wholesale"></div>
+  </div>
+
+  <h2 style="margin:2rem 0 1rem">Delivery details</h2>
+  <form class="hf" id="orderForm">
+   <div class="f-row">
+    <div><label>Name *</label><input id="o_name" required></div>
+    <div><label>Phone *</label><input id="o_phone" required></div>
+   </div>
+   <div><label>Delivery / pickup location *</label><input id="o_loc" placeholder="e.g. Bonga town, near ..." required></div>
+   <div><label>Note (optional)</label><textarea id="o_note" style="min-height:70px"></textarea></div>
+   <div class="sumbox" id="summary">No items selected yet.</div>
+   <div><button class="btn btn-green" type="submit" id="placeBtn">Place order</button></div>
+  </form>
+  <div id="msg"></div>
+ </div>
+
+ <div id="doneBox" style="display:none"></div>
+</div></section>
+
+<script type="module">
+import { sb, configured, myProfile, etb, esc, banner } from "./assets/js/app.js";
+const $ = id => document.getElementById(id);
+
+if (!configured) {
+  banner($("cfg"), "Online ordering is not switched on yet. Please order via the Contact page, phone or WhatsApp +251 911 333 685.", false);
+} else { init(); }
+
+let products = [], profile = null;
+
+async function init(){
+  profile = await myProfile();
+  if (!profile) { $("needLogin").style.display = "block"; return; }
+  $("shop").style.display = "block";
+  $("o_name").value = profile.full_name || "";
+  $("o_phone").value = profile.phone || "";
+  const { data } = await sb.from("products").select("*").eq("available", true).order("sort");
+  products = data || [];
+  const isDist = profile.role === "admin" || profile.role === "distributor" || profile.distributor_status === "approved";
+  render("retail", products.filter(p => !p.wholesale), true);
+  const ws = products.filter(p => p.wholesale);
+  if (isDist) { render("wholesale", ws, true); $("wsNote").textContent = "Open to your approved distributor account."; }
+  else {
+    render("wholesale", ws, false);
+    $("wsNote").innerHTML = "Wholesale prices and ordering are open to approved distributors. Apply from your <a href='account.html'>account page</a>.";
+  }
+}
+
+function render(target, list, enabled){
+  const box = $(target);
+  box.innerHTML = "";
+  for (const p of list) {
+    box.innerHTML += `<div class="prod">
+      <div class="nm"><b>${esc(p.name)}</b><span>${esc(p.name_am)} · ${esc(p.unit)} · ${p.price_etb != null ? etb(p.price_etb) : "price on confirmation"}</span></div>
+      ${enabled ? `<input type="number" min="0" value="0" data-id="${p.id}" class="qty">` : `<span class="small">distributors only</span>`}
+    </div>`;
+  }
+  box.querySelectorAll(".qty").forEach(i => i.addEventListener("input", summarize));
+}
+
+function cart(){
+  const out = [];
+  document.querySelectorAll(".qty").forEach(i => {
+    const q = parseInt(i.value || "0", 10);
+    if (q > 0) {
+      const p = products.find(x => x.id == i.dataset.id);
+      out.push({ p, q });
+    }
+  });
+  return out;
+}
+
+function summarize(){
+  const c = cart();
+  if (!c.length) { $("summary").textContent = "No items selected yet."; return; }
+  let total = 0, unknown = false, rows = "";
+  for (const { p, q } of c) {
+    rows += `${esc(p.name)} × ${q}${p.price_etb != null ? " = " + etb(p.price_etb * q) : ""}<br>`;
+    if (p.price_etb != null) total += p.price_etb * q; else unknown = true;
+  }
+  $("summary").innerHTML = rows + "<b>Total: " + (unknown ? (total ? "at least " + etb(total) + " (some prices confirmed after order)" : "confirmed after order") : etb(total)) + "</b>";
+}
+
+$("orderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const c = cart();
+  if (!c.length) { banner($("msg"), "Choose at least one product quantity first.", false); return; }
+  $("placeBtn").disabled = true;
+  const known = c.every(x => x.p.price_etb != null);
+  const total = known ? c.reduce((s, x) => s + x.p.price_etb * x.q, 0) : null;
+  const { data: order, error } = await sb.from("orders").insert({
+    user_id: profile.id,
+    customer_name: $("o_name").value.trim(),
+    phone: $("o_phone").value.trim(),
+    delivery_location: $("o_loc").value.trim(),
+    note: $("o_note").value.trim(),
+    total_etb: total
+  }).select().single();
+  if (error) { banner($("msg"), esc(error.message), false); $("placeBtn").disabled = false; return; }
+  const items = c.map(({ p, q }) => ({ order_id: order.id, user_id: profile.id, product_id: p.id, product_name: p.name, qty: q, price_etb: p.price_etb }));
+  const { error: e2 } = await sb.from("order_items").insert(items);
+  if (e2) { banner($("msg"), esc(e2.message), false); $("placeBtn").disabled = false; return; }
+  const { data: st } = await sb.from("settings").select("*");
+  const S = Object.fromEntries((st || []).map(r => [r.key, r.value]));
+  $("shop").style.display = "none";
+  $("doneBox").style.display = "block";
+  $("doneBox").innerHTML = `
+   <div class="notice"><b>Order placed. Your reference: ${esc(order.ref)}</b></div>
+   <div class="pay">
+    <b>How to pay</b><br>
+    Telebirr: <b>${esc(S.telebirr_number || "")}</b><br>
+    Bank transfer: <b>${esc(S.bank_details || "")}</b><br>
+    Amount: <b>${etb(order.total_etb)}</b><br><br>
+    ${esc(S.order_note || "")}<br><br>
+    After paying, open <a href="account.html">your account page</a>, find order <b>${esc(order.ref)}</b> and enter the transaction reference. We confirm and contact you on ${esc(order.phone)}.
+   </div>`;
+  window.scrollTo(0, 0);
+});
+</script>
+</body>
+</html>

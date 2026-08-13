@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account | Haiti Food Innovation ET</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Manrope:wght@400;600;700&family=Noto+Sans+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+.tabs{display:flex;gap:.6rem;margin-bottom:1.2rem}
+.tabs button{flex:1;padding:.7rem;border-radius:9px;border:1.5px solid var(--green);background:none;color:var(--green);font:700 .95rem Manrope;cursor:pointer}
+.tabs button.on{background:var(--green);color:#fff}
+.order-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem}
+.status{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:.2rem .55rem;background:var(--gold-soft);color:#7A5A12}
+.status.confirmed,.status.delivered{background:var(--green);color:#fff}
+.status.cancelled{background:#F8E6E6;color:#8A2020}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+ <a class="brand" href="index.html"><img src="assets/img/logo.png" alt=""><span class="brand-name">HAITI<span class="brand-sub">Food&nbsp;Innovation&nbsp;·&nbsp;ET</span></span></a>
+ <nav class="mainnav" style="display:flex"><a href="index.html">Home</a><a href="order.html">Order</a><a href="contact.html" class="nav-cta">Contact</a></nav>
+</div></header>
+
+<section class="section"><div class="wrap" style="max-width:34rem">
+ <div id="cfg"></div>
+
+ <div id="authBox">
+  <div class="section-head"><span class="eyebrow">Account · መለያ</span><h2 id="authTitle">Sign in</h2></div>
+  <div class="tabs"><button id="tabLogin" class="on">Sign in</button><button id="tabReg">Create account</button></div>
+  <form class="hf" id="authForm">
+   <div id="regFields" style="display:none">
+    <div style="margin-bottom:1rem"><label>Full name *</label><input id="f_name"></div>
+    <div style="margin-bottom:1rem"><label>Phone *</label><input id="f_phone" placeholder="09..."></div>
+   </div>
+   <div><label>Email *</label><input id="f_email" type="email" required></div>
+   <div><label>Password *</label><input id="f_pass" type="password" minlength="6" required></div>
+   <label class="consent" id="distRow" style="display:none"><input type="checkbox" id="f_dist"> I am applying as a distributor / wholesale buyer (subject to approval)</label>
+   <div><button class="btn btn-green" type="submit" id="authBtn">Sign in</button></div>
+   <div class="small"><a href="#" id="forgot">Forgot password?</a></div>
+  </form>
+  <div id="authMsg"></div>
+ </div>
+
+ <div id="meBox" style="display:none">
+  <div class="section-head"><span class="eyebrow">Account · መለያ</span><h2 id="hello">My account</h2></div>
+  <div id="meInfo" class="order-card"></div>
+  <div class="btn-row" style="margin:1rem 0 2rem">
+   <a class="btn btn-green" href="order.html">Place an order</a>
+   <a class="btn btn-outline" href="#" id="adminLink" style="display:none">Admin dashboard</a>
+   <a class="btn btn-outline" href="#" id="logout">Sign out</a>
+  </div>
+  <h3 style="margin-bottom:1rem">My orders</h3>
+  <div id="orders"></div>
+ </div>
+</div></section>
+
+<script type="module">
+import { sb, configured, myProfile, etb, esc, banner } from "./assets/js/app.js";
+const $ = id => document.getElementById(id);
+
+if (!configured) {
+  banner($("cfg"), "Online accounts are not switched on yet. Please use the Contact page, phone or WhatsApp to order.", false);
+  $("authBox").style.display = "none";
+} else { init(); }
+
+let mode = "login";
+function setMode(m){
+  mode = m;
+  $("tabLogin").classList.toggle("on", m==="login");
+  $("tabReg").classList.toggle("on", m==="reg");
+  $("regFields").style.display = m==="reg" ? "block" : "none";
+  $("distRow").style.display = m==="reg" ? "flex" : "none";
+  $("authTitle").textContent = m==="reg" ? "Create account" : "Sign in";
+  $("authBtn").textContent = m==="reg" ? "Create account" : "Sign in";
+}
+$("tabLogin").onclick = () => setMode("login");
+$("tabReg").onclick = () => setMode("reg");
+
+async function init(){
+  const p = await myProfile();
+  if (p) { showMe(p); } 
+  $("authForm").onsubmit = async (e) => {
+    e.preventDefault();
+    $("authBtn").disabled = true;
+    const email = $("f_email").value.trim(), pass = $("f_pass").value;
+    let r;
+    if (mode === "reg") {
+      r = await sb.auth.signUp({ email, password: pass, options: { data: {
+        full_name: $("f_name").value.trim(), phone: $("f_phone").value.trim(),
+        wants_distributor: $("f_dist").checked ? "true" : "false" } } });
+    } else {
+      r = await sb.auth.signInWithPassword({ email, password: pass });
+    }
+    $("authBtn").disabled = false;
+    if (r.error) { banner($("authMsg"), esc(r.error.message), false); return; }
+    const p2 = await myProfile();
+    if (p2) showMe(p2);
+    else banner($("authMsg"), "Account created. If email confirmation is on, check your inbox, then sign in.", true);
+  };
+  $("forgot").onclick = async (e) => {
+    e.preventDefault();
+    const email = $("f_email").value.trim();
+    if (!email) { banner($("authMsg"), "Type your email above first, then press Forgot password.", false); return; }
+    await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/account.html" });
+    banner($("authMsg"), "If that email has an account, a reset link has been sent.", true);
+  };
+}
+
+async function showMe(p){
+  $("authBox").style.display = "none";
+  $("meBox").style.display = "block";
+  $("hello").textContent = "Welcome, " + (p.full_name || "customer");
+  let dist = "";
+  if (p.distributor_status === "pending") dist = '<div class="small">Distributor application: <b>pending approval</b>. We will contact you.</div>';
+  if (p.distributor_status === "approved" || p.role === "distributor") dist = '<div class="small">Distributor account: <b>approved</b>. Wholesale products are open to you on the Order page.</div>';
+  $("meInfo").innerHTML = `<b>${esc(p.full_name)}</b><br>${esc(p.phone)}<br><span class="small">Role: ${esc(p.role)}</span>${dist}`;
+  if (p.role === "admin") { const a = $("adminLink"); a.style.display = "inline-block"; a.href = "admin.html"; }
+  $("logout").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
+  const { data: orders } = await sb.from("orders").select("*").order("created_at", { ascending: false });
+  const box = $("orders");
+  if (!orders || !orders.length) { box.innerHTML = '<p class="small">No orders yet.</p>'; return; }
+  box.innerHTML = "";
+  for (const o of orders) {
+    const { data: items } = await sb.from("order_items").select("*").eq("order_id", o.id);
+    const list = (items || []).map(i => `${esc(i.product_name)} × ${i.qty}`).join("<br>");
+    box.innerHTML += `<div class="order-card">
+      <b>${esc(o.ref)}</b> · <span class="status ${esc(o.status)}">${esc(o.status.replace("_"," "))}</span>
+      <div class="small" style="margin:.4rem 0">${new Date(o.created_at).toLocaleString()}</div>
+      <div>${list}</div>
+      <div style="margin-top:.4rem"><b>Total: ${etb(o.total_etb)}</b>${o.payment_ref ? `<span class="small"> · payment ref: ${esc(o.payment_ref)}</span>` : ""}</div>
+      ${o.status === "pending_payment" ? `
+        <div class="f-row" style="margin-top:.6rem">
+          <input placeholder="Telebirr / bank transaction reference" id="pr_${o.id}">
+          <button class="btn btn-green" style="border:0;cursor:pointer" onclick="window.__pay('${o.id}')">I have paid</button>
+        </div>` : ""}
+    </div>`;
+  }
+  window.__pay = async (id) => {
+    const v = document.getElementById("pr_" + id).value.trim();
+    if (!v) return alert("Please enter the transaction reference you received when paying.");
+    await sb.from("orders").update({ payment_ref: v, status: "payment_review" }).eq("id", id);
+    location.reload();
+  };
+}
+</script>
+</body>
+</html>

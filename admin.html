@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin | Haiti Food Innovation ET</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Manrope:wght@400;600;700&family=Noto+Sans+Ethiopic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+.tabbar{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0 1.5rem}
+.tabbar button{padding:.55rem 1rem;border-radius:999px;border:1.5px solid var(--green);background:none;color:var(--green);font:700 .88rem Manrope;cursor:pointer}
+.tabbar button.on{background:var(--green);color:#fff}
+.pane{display:none}.pane.on{display:block}
+.row{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.9rem 1.1rem;margin-bottom:.7rem}
+.row .small{color:var(--ink-soft)}
+select,input{font:600 .9rem Manrope}
+.grid2{display:grid;grid-template-columns:1fr auto;gap:.8rem;align-items:center}
+.badge2{font-size:.7rem;font-weight:800;text-transform:uppercase;border-radius:6px;padding:.18rem .5rem;background:var(--gold-soft);color:#7A5A12}
+button.mini{padding:.4rem .8rem;border-radius:8px;border:0;background:var(--green);color:#fff;font:700 .82rem Manrope;cursor:pointer}
+button.mini.gray{background:#8b8b83}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+ <a class="brand" href="index.html"><img src="assets/img/logo.png" alt=""><span class="brand-name">HAITI<span class="brand-sub">Admin&nbsp;Dashboard</span></span></a>
+ <nav class="mainnav" style="display:flex"><a href="index.html">Site</a><a href="account.html">Account</a></nav>
+</div></header>
+
+<section class="section"><div class="wrap" style="max-width:52rem">
+ <div id="gate"></div>
+ <div id="app" style="display:none">
+  <div class="section-head"><span class="eyebrow">Admin</span><h2>Company dashboard</h2></div>
+  <div class="tabbar">
+   <button data-p="orders" class="on">Orders</button>
+   <button data-p="products">Products & prices</button>
+   <button data-p="dist">Distributor requests</button>
+   <button data-p="settings">Payment settings</button>
+  </div>
+  <div id="orders" class="pane on"></div>
+  <div id="products" class="pane"></div>
+  <div id="dist" class="pane"></div>
+  <div id="settings" class="pane"></div>
+ </div>
+</div></section>
+
+<script type="module">
+import { sb, configured, myProfile, etb, esc, banner } from "./assets/js/app.js";
+const $ = id => document.getElementById(id);
+const STATUSES = ["pending_payment","payment_review","confirmed","delivered","cancelled"];
+
+if (!configured) { banner($("gate"), "System not configured yet.", false); }
+else init();
+
+async function init(){
+  const p = await myProfile();
+  if (!p) { banner($("gate"), "Please <a href='account.html'>sign in</a> with the admin account.", false); return; }
+  if (p.role !== "admin") { banner($("gate"), "This page is for administrators only.", false); return; }
+  $("app").style.display = "block";
+  document.querySelectorAll(".tabbar button").forEach(b => b.onclick = () => {
+    document.querySelectorAll(".tabbar button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.id === b.dataset.p));
+  });
+  loadOrders(); loadProducts(); loadDist(); loadSettings();
+}
+
+async function loadOrders(){
+  const { data: orders } = await sb.from("orders").select("*").order("created_at", { ascending: false }).limit(100);
+  const box = $("orders");
+  if (!orders || !orders.length) { box.innerHTML = "<p class='small'>No orders yet.</p>"; return; }
+  box.innerHTML = "";
+  for (const o of orders) {
+    const { data: items } = await sb.from("order_items").select("*").eq("order_id", o.id);
+    const list = (items || []).map(i => `${esc(i.product_name)} × ${i.qty}`).join(", ");
+    box.innerHTML += `<div class="row">
+     <div class="grid2">
+      <div>
+       <b>${esc(o.ref)}</b> · ${esc(o.customer_name)} · <a href="tel:${esc(o.phone)}">${esc(o.phone)}</a>
+       <div class="small">${new Date(o.created_at).toLocaleString()} · ${esc(o.delivery_location)}</div>
+       <div class="small">${list}</div>
+       <div class="small">Total: <b>${etb(o.total_etb)}</b>${o.payment_ref ? " · payment ref: <b>" + esc(o.payment_ref) + "</b>" : " · no payment ref yet"}</div>
+       ${o.note ? `<div class="small">Note: ${esc(o.note)}</div>` : ""}
+      </div>
+      <div>
+       <select data-id="${o.id}" class="stSel">${STATUSES.map(s => `<option ${s===o.status?"selected":""}>${s}</option>`).join("")}</select>
+       <div style="margin-top:.4rem"><input data-id="${o.id}" class="totIn" placeholder="total ETB" value="${o.total_etb ?? ""}" style="width:7rem"></div>
+       <div style="margin-top:.4rem"><button class="mini" data-id="${o.id}" data-act="save">Save</button></div>
+      </div>
+     </div>
+    </div>`;
+  }
+  box.querySelectorAll("button[data-act=save]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.id;
+    const status = box.querySelector(`.stSel[data-id="${id}"]`).value;
+    const tv = box.querySelector(`.totIn[data-id="${id}"]`).value.trim();
+    await sb.from("orders").update({ status, total_etb: tv === "" ? null : Number(tv) }).eq("id", id);
+    b.textContent = "Saved ✓"; setTimeout(() => b.textContent = "Save", 1200);
+  });
+}
+
+async function loadProducts(){
+  const { data: prods } = await sb.from("products").select("*").order("sort");
+  const box = $("products");
+  box.innerHTML = `<div class="small" style="margin-bottom:.8rem">Set prices in ETB (leave empty for "price on confirmation"), switch availability, and mark wholesale items.</div>`;
+  for (const p of prods || []) {
+    box.innerHTML += `<div class="row grid2">
+      <div><b>${esc(p.name)}</b> <span class="small">· ${esc(p.unit)}</span>${p.wholesale ? ' <span class="badge2">wholesale</span>' : ""}</div>
+      <div>
+       <input class="prIn" data-id="${p.id}" placeholder="ETB" value="${p.price_etb ?? ""}" style="width:6.5rem">
+       <label style="display:inline"><input type="checkbox" class="avIn" data-id="${p.id}" ${p.available ? "checked" : ""}> available</label>
+       <button class="mini psave" data-id="${p.id}">Save</button>
+      </div></div>`;
+  }
+  box.innerHTML += `<div class="row grid2"><div><input id="np_name" placeholder="New product name"> <input id="np_unit" placeholder="unit e.g. 1 kg pouch" style="width:9rem"> <label style="display:inline"><input type="checkbox" id="np_ws"> wholesale</label></div><div><button class="mini" id="np_add">Add</button></div></div>`;
+  box.querySelectorAll(".psave").forEach(b => b.onclick = async () => {
+    const id = b.dataset.id;
+    const price = box.querySelector(`.prIn[data-id="${id}"]`).value.trim();
+    const available = box.querySelector(`.avIn[data-id="${id}"]`).checked;
+    await sb.from("products").update({ price_etb: price === "" ? null : Number(price), available }).eq("id", id);
+    b.textContent = "Saved ✓"; setTimeout(() => b.textContent = "Save", 1200);
+  });
+  const add = box.querySelector("#np_add");
+  add.onclick = async () => {
+    const name = box.querySelector("#np_name").value.trim();
+    if (!name) return;
+    await sb.from("products").insert({ name, unit: box.querySelector("#np_unit").value.trim(), wholesale: box.querySelector("#np_ws").checked, sort: 500 });
+    loadProducts();
+  };
+}
+
+async function loadDist(){
+  const { data: reqs } = await sb.from("profiles").select("*").eq("distributor_status", "pending");
+  const box = $("dist");
+  if (!reqs || !reqs.length) { box.innerHTML = "<p class='small'>No pending distributor applications.</p>"; return; }
+  box.innerHTML = "";
+  for (const r of reqs) {
+    box.innerHTML += `<div class="row grid2">
+      <div><b>${esc(r.full_name)}</b><div class="small">${esc(r.phone)} · applied ${new Date(r.created_at).toLocaleDateString()}</div></div>
+      <div><button class="mini appr" data-id="${r.id}">Approve</button> <button class="mini gray decl" data-id="${r.id}">Decline</button></div>
+    </div>`;
+  }
+  box.querySelectorAll(".appr").forEach(b => b.onclick = async () => {
+    await sb.from("profiles").update({ role: "distributor", distributor_status: "approved" }).eq("id", b.dataset.id);
+    loadDist();
+  });
+  box.querySelectorAll(".decl").forEach(b => b.onclick = async () => {
+    await sb.from("profiles").update({ distributor_status: null }).eq("id", b.dataset.id);
+    loadDist();
+  });
+}
+
+async function loadSettings(){
+  const { data: st } = await sb.from("settings").select("*");
+  const S = Object.fromEntries((st || []).map(r => [r.key, r.value]));
+  const box = $("settings");
+  box.innerHTML = `
+   <div class="row"><label>Telebirr number customers pay to</label><input id="s_tb" value="${esc(S.telebirr_number || "")}" style="width:100%"></div>
+   <div class="row"><label>Bank transfer details (bank, account name, account number)</label><input id="s_bk" value="${esc(S.bank_details || "")}" style="width:100%"></div>
+   <div class="row"><label>Note shown to customers after ordering</label><input id="s_nt" value="${esc(S.order_note || "")}" style="width:100%"></div>
+   <button class="mini" id="s_save">Save settings</button> <span id="s_ok" class="small"></span>`;
+  box.querySelector("#s_save").onclick = async () => {
+    await sb.from("settings").upsert([
+      { key: "telebirr_number", value: box.querySelector("#s_tb").value.trim() },
+      { key: "bank_details", value: box.querySelector("#s_bk").value.trim() },
+      { key: "order_note", value: box.querySelector("#s_nt").value.trim() }]);
+    box.querySelector("#s_ok").textContent = "Saved ✓";
+    setTimeout(() => box.querySelector("#s_ok").textContent = "", 1500);
+  };
+}
+</script>
+</body>
+</html>
