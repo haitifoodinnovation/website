@@ -143,6 +143,13 @@ $("orderForm").addEventListener("submit", async (e) => {
   const items = c.map(({ p, q }) => ({ order_id: order.id, user_id: profile.id, product_id: p.id, product_name: p.name, qty: q, price_etb: p.price_etb }));
   const { error: e2 } = await sb.from("order_items").insert(items);
   if (e2) { banner($("msg"), esc(e2.message), false); $("placeBtn").disabled = false; return; }
+  fetch("https://formsubmit.co/ajax/haitifoodinnovationET@gmail.com", { method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ _subject: "New order " + order.ref + " (website)",
+      Reference: order.ref, Name: order.customer_name, Phone: order.phone,
+      Location: order.delivery_location, Items: c.map(x => x.p.name + " x " + x.q).join(", "),
+      Total: order.total_etb == null ? "on confirmation" : order.total_etb + " ETB",
+      Note: order.note || "-" }) }).catch(() => {});
   const { data: st } = await sb.from("settings").select("*");
   const S = Object.fromEntries((st || []).map(r => [r.key, r.value]));
   $("shop").style.display = "none";

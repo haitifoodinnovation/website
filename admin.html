@@ -36,11 +36,13 @@ button.mini.gray{background:#8b8b83}
   <div class="tabbar">
    <button data-p="orders" class="on">Orders</button>
    <button data-p="products">Products & prices</button>
+   <button data-p="reviews">Reviews</button>
    <button data-p="dist">Distributor requests</button>
    <button data-p="settings">Payment settings</button>
   </div>
   <div id="orders" class="pane on"></div>
   <div id="products" class="pane"></div>
+  <div id="reviews" class="pane"></div>
   <div id="dist" class="pane"></div>
   <div id="settings" class="pane"></div>
  </div>
@@ -63,7 +65,7 @@ async function init(){
     document.querySelectorAll(".tabbar button").forEach(x => x.classList.toggle("on", x === b));
     document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.id === b.dataset.p));
   });
-  loadOrders(); loadProducts(); loadDist(); loadSettings();
+  loadOrders(); loadProducts(); loadReviews(); loadDist(); loadSettings();
 }
 
 async function loadOrders(){
@@ -128,6 +130,29 @@ async function loadProducts(){
     await sb.from("products").insert({ name, unit: box.querySelector("#np_unit").value.trim(), wholesale: box.querySelector("#np_ws").checked, sort: 500 });
     loadProducts();
   };
+}
+
+async function loadReviews(){
+  const { data: revs } = await sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(100);
+  const box = $("reviews");
+  if (!revs || !revs.length) { box.innerHTML = "<p class='small'>No reviews yet.</p>"; return; }
+  box.innerHTML = "";
+  for (const r of revs) {
+    box.innerHTML += `<div class="row grid2">
+      <div><span style="color:var(--gold)">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span>
+       <b>${esc(r.product)}</b> ${r.approved ? '<span class="badge2" style="background:var(--green);color:#fff">published</span>' : '<span class="badge2">pending</span>'}
+       <div class="small">"${esc(r.review)}"</div>
+       <div class="small">${esc(r.name)}${r.city ? " · " + esc(r.city) : ""} · ${new Date(r.created_at).toLocaleDateString()}</div></div>
+      <div>
+       ${r.approved
+         ? `<button class="mini gray runpub" data-id="${r.id}">Unpublish</button>`
+         : `<button class="mini rappr" data-id="${r.id}">Approve</button>`}
+       <button class="mini gray rdel" data-id="${r.id}">Delete</button>
+      </div></div>`;
+  }
+  box.querySelectorAll(".rappr").forEach(b => b.onclick = async () => { await sb.from("reviews").update({ approved: true }).eq("id", b.dataset.id); loadReviews(); });
+  box.querySelectorAll(".runpub").forEach(b => b.onclick = async () => { await sb.from("reviews").update({ approved: false }).eq("id", b.dataset.id); loadReviews(); });
+  box.querySelectorAll(".rdel").forEach(b => b.onclick = async () => { if (confirm("Delete this review permanently?")) { await sb.from("reviews").delete().eq("id", b.dataset.id); loadReviews(); } });
 }
 
 async function loadDist(){
